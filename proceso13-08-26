@@ -1,0 +1,187 @@
+import os
+import time
+import shutil
+import tempfile
+import win32com.client as win32
+
+def rgb_to_int(r, g, b):
+    """Convierte valores RGB a un entero compatible con Excel Win32Com."""
+    return r + (g * 256) + (b * 65536)
+
+def combinar():
+    excel = None
+    wb_destino = None
+    wbs_origen = []
+    temp_dir = None
+
+    try:
+        print("(1) Empieza el proceso de automatización...")
+
+        # -----------------------------------
+        # --------- RUTAS Y ARCHIVOS --------
+        # -----------------------------------
+        base_path = r"C:\Users\28443\OneDrive - Grupo Fahnos\EPMO\Reporte Facturación\Archivos Facts Prueba"
+
+
+        archivo_origen1 = os.path.join(base_path, "BD BI 2 AVO.xlsx")
+        archivo_origen2 = os.path.join(base_path, "BD BI 2 IP.xlsx")
+        archivo_origen3 = os.path.join(base_path, "BD BI 2 STN.xlsx")
+        archivo_origen4 = os.path.join(base_path, "BD BI 2 SP.xlsx")
+        archivo_destino = os.path.join(base_path, "Base Facturación-Cobranza Python.xlsx")
+
+        # Crear carpeta temporal aislada
+        temp_dir = tempfile.mkdtemp()
+
+        # Copiar archivos origen y destino al entorno temporal
+        temp_orig1 = shutil.copy2(archivo_origen1, temp_dir)
+        temp_orig2 = shutil.copy2(archivo_origen2, temp_dir)
+        temp_orig3 = shutil.copy2(archivo_origen3, temp_dir)
+        temp_orig4 = shutil.copy2(archivo_origen4, temp_dir)
+        temp_dest  = shutil.copy2(archivo_destino, temp_dir)
+
+        # Abrir instancia de Excel
+        excel = win32.Dispatch("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.AskToUpdateLinks = False
+        excel.Interactive = False
+        excel.ScreenUpdating = False  # Optimización de rendimiento
+
+        # Abrir libros desde la carpeta temporal
+        wb_origen1 = excel.Workbooks.Open(temp_orig1)
+        wbs_origen.append(wb_origen1)
+        wb_origen2 = excel.Workbooks.Open(temp_orig2)
+        wbs_origen.append(wb_origen2)
+        wb_origen3 = excel.Workbooks.Open(temp_orig3)
+        wbs_origen.append(wb_origen3)
+        wb_origen4 = excel.Workbooks.Open(temp_orig4)
+        wbs_origen.append(wb_origen4)
+
+        wb_destino = excel.Workbooks.Open(temp_dest)
+        ws_destino = wb_destino.Worksheets("Base")
+
+        # -----------------------------------
+        # --------- MAPEO DE COLUMNAS -------
+        # -----------------------------------
+        PAREJAS_HOJAS_1 = [
+            ("A","B"), ("B","S"), ("C","I"), ("D","D"), ("G","J"), 
+            ("H","K"), ("I","M"), ("J","H"), ("K","G"), ("M","N"), 
+            ("N","T"), ("O","Q")
+        ]
+
+        PAREJAS_HOJAS_2 = [
+            ("A","G"), ("B","H"), ("F","F"), ("D","D"), ("E","A"), 
+            ("G","S"), ("P","J"), ("Q","K"), ("R","L"), ("S","M"), 
+            ("T","I"), ("V","J"), ("W","T"), ("X","R"), ("Y","C")
+        ]
+
+        PAREJAS_HOJAS_3 = [
+            ("A","B"), ("B","S"), ("C","E"), ("E","J"), ("F","K"), 
+            ("G","M"), ("H","N"), ("J","Q"), ("I","T"), ("K","I"), 
+            ("M","H"), ("N","G"), ("O","S"), ("R","R")
+        ]
+
+        PAREJAS_HOJAS_4 = [
+            ("B","R"), ("C","G"), ("D","D"), ("E","B"), ("F","F"), 
+            ("H","H"), ("L","S"), ("O","I"), ("P","J"), ("Q","K"), 
+            ("R","L"), ("S","M"), ("V","N"), ("U","O"), ("AA","C"), 
+            ("AC","T")
+        ]
+
+        # Configuración de bloques:
+        # (Workbook, Nombre Hoja, Mapeo, Fila Inicio, Etiqueta Col A, Color RGB)
+        bloques = [
+            (wb_origen1, "AVOLAT",               PAREJAS_HOJAS_1, 3, "AVOLAT", rgb_to_int(180, 225, 250)), # Aqua / Azul claro
+            (wb_origen2, "BD CLIENTES 2016-2022", PAREJAS_HOJAS_2, 3, "IP",     rgb_to_int(200, 240, 200)), # Verde claro
+            (wb_origen3, "STN",                  PAREJAS_HOJAS_3, 6, "STN",    rgb_to_int(255, 255, 180)), # Amarillo
+            (wb_origen4, "BD.",                  PAREJAS_HOJAS_4, 8, "SP",     rgb_to_int(220, 220, 220))  # Gris
+        ]
+
+        fila_destino_actual = 3  # Iniciar pegado en fila 3 del archivo destino
+
+        print("(2) Procesando y copiando datos...")
+        for idx, (wb_orig, nombre_hoja, parejas, fila_ini_orig, tag, color) in enumerate(bloques, start=1):
+            ws_orig = wb_orig.Worksheets(nombre_hoja)
+            
+            # Obtener última fila con datos en la columna A del origen
+            ultima_fila_orig = ws_orig.Cells(ws_orig.Rows.Count, 1).End(-4162).Row
+
+            if ultima_fila_orig >= fila_ini_orig:
+                num_filas = ultima_fila_orig - fila_ini_orig + 1
+                fila_fin_dest = fila_destino_actual + num_filas - 1
+
+                # Transferencia de datos por columna
+                for col_orig, col_dest in parejas:
+                    valores = ws_orig.Range(f"{col_orig}{fila_ini_orig}:{col_orig}{ultima_fila_orig}").Value
+                    ws_destino.Range(f"{col_dest}{fila_destino_actual}:{col_dest}{fila_fin_dest}").Value = valores
+
+                # Aplicar etiqueta y color a la Columna A del Destino
+                rango_tag = ws_destino.Range(f"A{fila_destino_actual}:A{fila_fin_dest}")
+                rango_tag.Value = tag
+                rango_tag.Interior.Color = color
+
+                print(f" -> Bloque {idx} [{tag}] (Hoja: '{nombre_hoja}') procesado: {num_filas} filas copiadas.")
+                
+                # Actualizar posición para el siguiente bloque
+                fila_destino_actual = fila_fin_dest + 1
+            else:
+                print(f" -> Bloque {idx} [{tag}] (Hoja: '{nombre_hoja}') sin datos para procesar.")
+
+        # Guardar y cerrar libro destino local
+        print("(3) Guardando cambios en archivo temporal...")
+        wb_destino.Save()
+        wb_destino.Close()
+        wb_destino = None
+
+        # Cerrar archivos de origen
+        for wb in wbs_origen:
+            try:
+                wb.Close(False)
+            except Exception:
+                pass
+        wbs_origen.clear()
+
+        # Cerrar Excel para liberar los bloqueos de archivo
+        if excel:
+            excel.CutCopyMode = False
+            excel.ScreenUpdating = True
+            excel.Interactive = True
+            excel.Quit()
+            excel = None
+
+        # Reemplazar el archivo destino original con el procesado
+        print("(4) Copiando resultado a la carpeta original...")
+        shutil.copy2(temp_dest, archivo_destino)
+
+    except Exception as e:
+        print(f"❌ Ocurrió un error durante la ejecución: {e}")
+
+    finally:
+        # Cerrar archivos de origen si quedaron abiertos por error
+        for wb in wbs_origen:
+            try:
+                wb.Close(False)
+            except Exception:
+                pass
+
+        # Restaurar estado y cerrar aplicación Excel si sigue abierta
+        if excel:
+            try:
+                excel.CutCopyMode = False
+                excel.ScreenUpdating = True
+                excel.Interactive = True
+                excel.Quit()
+            except Exception:
+                pass
+
+        # Eliminar carpeta temporal y todo su contenido
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+        print("Proceso completado con éxito.")
+
+if __name__ == "__main__":
+    combinar()
