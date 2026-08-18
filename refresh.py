@@ -2,6 +2,11 @@ import os
 import sys
 import win32com.client as win32
 
+"""
+ Este archivo de python automatiza el proceso 1 que consiste en abrir el archivo y actualizarlo únicamente.
+ Falta asegurarse que no haya conflictos y el archivo se guarde correctamente debido al peso y la cantidad de vínculos que tiene.
+"""
+
 def actualizar_y_guardar_excel(nombre_o_ruta_archivo):
     """
     Actualiza vínculos y fuentes de datos en un archivo de Excel y lo guarda.

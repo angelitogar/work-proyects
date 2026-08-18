@@ -4,12 +4,22 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import win32com.client as win32
 
+"""
+ Este archivo de python automatiza el proceso de añadir cuentas nuevas al proceso 1
+ Practicamente es escribir los datos relativos a la nueva cuenta 
+ Posteriormente busca una carpeta con su nombre y copia los vínculos de excel y los pega en el documento correspondiente.
+ Hay que tener atención con los nombres del proyecto y su carpeta, además de los archivos de Excel Generados, que no tengan errorer
+ """
+
+
 # ==========================================
 # 1. MOSTRAR FORMULARIO / VENTANA EMERGENTE
 # ==========================================
 root = tk.Tk()
 root.withdraw()  # Oculta la ventana principal de Tkinter
 
+
+# Aquí se le pide al usuario poner el nombe EXACTO de la nueva cuenta en una ventana emergente
 nombre_cuenta = simpledialog.askstring(
     title="Agregar Nueva Cuenta",
     prompt="Ingresa el identificador de la nueva cuenta (ej. BANXICO 14):"
